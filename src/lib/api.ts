@@ -1,8 +1,16 @@
 export function getApiBaseUrl(): string {
-  const rawUrl =
-    (typeof window === 'undefined'
+  let rawUrl =
+    typeof window === 'undefined'
       ? process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
-      : process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:5000';
+      : process.env.NEXT_PUBLIC_API_URL;
+
+  if (!rawUrl) {
+    if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+      rawUrl = 'https://weekend-animal-backend.onrender.com';
+    } else {
+      rawUrl = 'http://localhost:5000';
+    }
+  }
 
   return rawUrl.trim().replace(/\/+$/, '');
 }

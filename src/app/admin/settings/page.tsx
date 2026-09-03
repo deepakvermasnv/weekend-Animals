@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PaymentQrImage from '@/components/PaymentQrImage';
 import { Save, Upload, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await fetch('/api/admin/settings');
+        const res = await apiFetch('/api/admin/settings');
         const data = await res.json();
         if (res.ok && data.settings) {
           setSettings(data.settings);
@@ -102,14 +103,20 @@ export default function SettingsPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await apiFetch('/api/admin/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
 
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Ignored
+      }
+
       if (!res.ok) {
-        throw new Error('Failed to save settings');
+        throw new Error(data.error || 'Failed to save settings. Please try again.');
       }
 
       setSuccess(true);

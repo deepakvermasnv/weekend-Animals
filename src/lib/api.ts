@@ -1,14 +1,20 @@
 export function getApiBaseUrl(): string {
-  // Server-side environment variable (API_URL) takes precedence, then public NEXT_PUBLIC_API_URL, then localhost default
-  if (typeof window === 'undefined') {
-    return process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-  }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const rawUrl =
+    (typeof window === 'undefined'
+      ? process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
+      : process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:5000';
+
+  return rawUrl.trim().replace(/\/+$/, '');
 }
 
 export function getApiUrl(path: string): string {
   const baseUrl = getApiBaseUrl();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  if (baseUrl.endsWith('/api') && cleanPath.startsWith('/api')) {
+    return `${baseUrl}${cleanPath.substring(4)}`;
+  }
+
   return `${baseUrl}${cleanPath}`;
 }
 

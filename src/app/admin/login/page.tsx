@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { apiFetch } from '@/lib/api';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -18,13 +19,19 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text ? 'Backend API server unreachable or invalid response.' : 'Login request failed.');
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Authentication failed');

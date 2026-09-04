@@ -21,7 +21,10 @@ export default async function PaymentPage() {
   } catch (error) {
     console.error('API fetch error on PaymentPage:', error);
   }
-  const qrImage = settings.paymentQrCodeUrl || '/images/Weekend-animal.jpg';
+  const rawQrImage = settings.paymentQrCodeUrl;
+  const qrImage = (!rawQrImage || rawQrImage === '/images/payment-qr.png' || rawQrImage === 'images/payment-qr.png')
+    ? '/images/Weekend-animal.jpg'
+    : rawQrImage;
   const upiId = settings.upiId || 'deepuverma124124-1@okicici';
   const confirmationUrl =
     settings.paymentConfirmationUrl ||

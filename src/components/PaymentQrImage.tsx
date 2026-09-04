@@ -14,12 +14,24 @@ export default function PaymentQrImage({
   alt = 'Payment QR Code',
   defaultSrc = '/images/Weekend-animal.jpg',
 }: PaymentQrImageProps) {
-  const [imgSrc, setImgSrc] = useState<string>(src || defaultSrc);
+  const sanitizeSrc = (input?: string) => {
+    if (!input || input === '/images/payment-qr.png' || input === 'images/payment-qr.png') {
+      return defaultSrc;
+    }
+    if (input.startsWith('http://') || input.startsWith('https://') || input.startsWith('data:')) {
+      return input;
+    }
+    return input.startsWith('/') ? input : `/${input}`;
+  };
+
+  const initialSrc = sanitizeSrc(src);
+  const [imgSrc, setImgSrc] = useState<string>(initialSrc);
   const [hasError, setHasError] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    setImgSrc(src || defaultSrc);
+    const cleanSrc = sanitizeSrc(src);
+    setImgSrc(cleanSrc);
     setHasError(false);
     setLoading(true);
   }, [src, defaultSrc]);
@@ -28,11 +40,11 @@ export default function PaymentQrImage({
     if (!hasError && imgSrc !== defaultSrc) {
       console.warn('QR code image failed to load, falling back to default QR image.');
       setImgSrc(defaultSrc);
-      setHasError(true);
+      setLoading(true);
     } else {
       setHasError(true);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -43,7 +55,7 @@ export default function PaymentQrImage({
         </div>
       )}
 
-      {hasError && imgSrc === defaultSrc ? (
+      {hasError ? (
         <div className="p-4 text-center space-y-2">
           <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600">
             <QrCode className="w-8 h-8" />

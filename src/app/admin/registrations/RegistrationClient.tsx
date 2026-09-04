@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, FileText, Plus, X, Phone, Trash2, AlertCircle } from 'lucide-react';
+import { Search, FileText, Plus, X, Phone, Trash2, AlertCircle, Pencil } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
 interface RegistrationItem {
   id: string;
@@ -46,6 +47,119 @@ export default function RegistrationClient({
   const [modalNotes, setModalNotes] = useState('');
   const [modalReference, setModalReference] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+
+  // Edit Modal state
+  const [editingReg, setEditingReg] = useState<RegistrationItem | null>(null);
+  const [editError, setEditError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    area: '',
+    skillLevel: 'Intermediate',
+    battingBowling: 'All-Rounder',
+    matchId: '',
+    status: 'CONFIRMED',
+    paymentStatus: 'PAID',
+    paymentAmount: 0,
+    reference: '',
+    notes: '',
+  });
+
+  const handleOpenEditModal = (r: RegistrationItem) => {
+    setEditingReg(r);
+    setEditError('');
+    setEditForm({
+      name: r.name || '',
+      phone: r.phone || '',
+      area: r.area || '',
+      skillLevel: r.skillLevel || 'Intermediate',
+      battingBowling: r.battingBowling || 'All-Rounder',
+      matchId: r.matchId || (matches[0]?.id || ''),
+      status: r.status || 'CONFIRMED',
+      paymentStatus: r.paymentStatus || 'PAID',
+      paymentAmount: r.paymentAmount || 0,
+      reference: r.paymentReference || '',
+      notes: r.notes || '',
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReg) return;
+
+    if (!editForm.name.trim()) {
+      setEditError('Please enter player name.');
+      return;
+    }
+    if (!editForm.phone.trim()) {
+      setEditError('Please enter WhatsApp phone number.');
+      return;
+    }
+
+    setEditLoading(true);
+    setEditError('');
+
+    try {
+      const res = await apiFetch(`/api/admin/registrations/${editingReg.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editForm.name,
+          phone: editForm.phone,
+          area: editForm.area,
+          skillLevel: editForm.skillLevel,
+          battingBowling: editForm.battingBowling,
+          matchId: editForm.matchId,
+          status: editForm.status,
+          paymentStatus: editForm.paymentStatus,
+          amount: editForm.paymentAmount,
+          reference: editForm.reference,
+          notes: editForm.notes,
+        }),
+      });
+
+      if (res.status === 401) {
+        window.location.href = '/admin/login';
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        const selectedMatch = matches.find((m) => m.id === editForm.matchId);
+        setRegistrations((prev) =>
+          prev.map((item) =>
+            item.id === editingReg.id
+              ? {
+                  ...item,
+                  name: editForm.name,
+                  phone: editForm.phone,
+                  area: editForm.area,
+                  skillLevel: editForm.skillLevel,
+                  battingBowling: editForm.battingBowling,
+                  matchId: editForm.matchId,
+                  matchTitle: selectedMatch ? selectedMatch.title : item.matchTitle,
+                  status: editForm.status,
+                  paymentStatus: editForm.paymentStatus,
+                  paymentAmount: editForm.paymentAmount,
+                  paymentReference: editForm.reference,
+                  notes: editForm.notes,
+                }
+              : item
+          )
+        );
+        setEditingReg(null);
+      } else {
+        setEditError(data.error || 'Failed to update player details.');
+      }
+    } catch (err) {
+      console.error('Error updating player:', err);
+      setEditError('An unexpected error occurred while updating player details.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   // Manual Add Modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -452,6 +566,14 @@ export default function RegistrationClient({
                         )}
 
                         <button
+                          onClick={() => handleOpenEditModal(r)}
+                          className="bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900 text-amber-700 dark:text-amber-300 p-2 rounded-lg border border-amber-200 dark:border-amber-500/20 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                          title="Edit Player Details"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
                           onClick={() => {
                             setSelectedReg(r);
                             setModalNotes(r.notes || '');
@@ -537,20 +659,37 @@ export default function RegistrationClient({
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => {
-                  const regToDelete = selectedReg;
-                  setSelectedReg(null);
-                  if (regToDelete) {
-                    handleDeleteRegistration(regToDelete.id, regToDelete.name);
-                  }
-                }}
-                className="inline-flex items-center space-x-1.5 text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900 px-3 py-2 rounded-xl border border-red-200 dark:border-red-500/20 min-h-[40px]"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Remove Player</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const regToEdit = selectedReg;
+                    setSelectedReg(null);
+                    if (regToEdit) {
+                      handleOpenEditModal(regToEdit);
+                    }
+                  }}
+                  className="inline-flex items-center space-x-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/20 min-h-[40px]"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Edit Details</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const regToDelete = selectedReg;
+                    setSelectedReg(null);
+                    if (regToDelete) {
+                      handleDeleteRegistration(regToDelete.id, regToDelete.name);
+                    }
+                  }}
+                  className="inline-flex items-center space-x-1.5 text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900 px-3 py-2 rounded-xl border border-red-200 dark:border-red-500/20 min-h-[40px]"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove</span>
+                </button>
+              </div>
 
               <div className="flex items-center space-x-3">
                 <button
@@ -568,6 +707,191 @@ export default function RegistrationClient({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Registration Modal */}
+      {editingReg && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center space-x-2">
+                <div className="bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 p-2 rounded-xl">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Edit Player Details</h3>
+              </div>
+              <button
+                onClick={() => setEditingReg(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white min-h-[36px] min-w-[36px] flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 text-red-800 dark:text-red-200 text-xs p-3 rounded-2xl flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditSubmit} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Player Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">WhatsApp Phone *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Area / Suburb</label>
+                  <input
+                    type="text"
+                    value={editForm.area}
+                    onChange={(e) => setEditForm({ ...editForm, area: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Skill Level</label>
+                  <select
+                    value={editForm.skillLevel}
+                    onChange={(e) => setEditForm({ ...editForm, skillLevel: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role</label>
+                  <select
+                    value={editForm.battingBowling}
+                    onChange={(e) => setEditForm({ ...editForm, battingBowling: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    <option value="Batsman">Batsman</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="All-Rounder">All-Rounder</option>
+                    <option value="Wicketkeeper-Batsman">Wicketkeeper-Batsman</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Match</label>
+                <select
+                  value={editForm.matchId}
+                  onChange={(e) => setEditForm({ ...editForm, matchId: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-bold"
+                >
+                  {matches.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title} ({m.date ? new Date(m.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Player Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    <option value="CONFIRMED">Confirmed</option>
+                    <option value="REGISTERED">Registered</option>
+                    <option value="WAITLISTED">Waitlisted</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Status</label>
+                  <select
+                    value={editForm.paymentStatus}
+                    onChange={(e) => setEditForm({ ...editForm, paymentStatus: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    <option value="PAID">Paid</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="REFUNDED">Refunded</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={editForm.paymentAmount}
+                    onChange={(e) => setEditForm({ ...editForm, paymentAmount: Number(e.target.value) })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Ref (UPI ID)</label>
+                  <input
+                    type="text"
+                    value={editForm.reference}
+                    onChange={(e) => setEditForm({ ...editForm, reference: e.target.value })}
+                    placeholder="e.g. UPI/9876543210"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Internal Admin Notes</label>
+                <textarea
+                  rows={2}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  placeholder="Notes about payment, bat preferences, etc."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white min-h-[40px] focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingReg(null)}
+                  className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs min-h-[40px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="bg-amber-600 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 font-black text-xs px-5 py-2 rounded-xl shadow-lg disabled:opacity-50 min-h-[40px]"
+                >
+                  {editLoading ? 'Saving Changes...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

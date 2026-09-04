@@ -21,10 +21,8 @@ export default async function PaymentPage() {
   } catch (error) {
     console.error('API fetch error on PaymentPage:', error);
   }
-  const rawQrImage = settings.paymentQrCodeUrl;
-  const qrImage = (!rawQrImage || rawQrImage === '/images/payment-qr.png' || rawQrImage === 'images/payment-qr.png')
-    ? '/images/Weekend-animal.jpg'
-    : rawQrImage;
+  // Static QR Image from UI frontend assets so it never depends on backend
+  const qrImage = '/images/Weekend-animal.jpg';
   const upiId = settings.upiId || 'deepuverma124124-1@okicici';
   const confirmationUrl =
     settings.paymentConfirmationUrl ||

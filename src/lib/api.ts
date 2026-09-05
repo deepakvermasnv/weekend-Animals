@@ -32,6 +32,13 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     'Content-Type': 'application/json',
   };
 
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
     headers: {

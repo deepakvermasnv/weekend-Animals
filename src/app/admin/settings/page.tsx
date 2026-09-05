@@ -119,6 +119,10 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Failed to save settings. Please try again.');
       }
 
+      if (data.settings) {
+        setSettings(data.settings);
+      }
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
